@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Churn</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+ <div id="app">
+  <h2>Check your chain's developer health</h2>
+
+  <div id="selection">
+    <label for="chain">Choose a chain:</label>
+    <select id="chain">
+      <option value="ethereum">Ethereum</option>
+      <option value="polygon">Polygon</option>
+      <option value="solana">Solana</option>
+      <option value="cardano">Cardano</option>
+    </select>
+
+    <button id="analyze-btn">Analyze my chain</button>
+  </div>
+
+  <!-- Hidden email form -->
+  <div id="email-form" style="display: none;">
+    <h3>Enter your email to receive results</h3>
+    <input type="email" id="email" placeholder="you@example.com" required>
+    <button id="send-btn">Send Results</button>
+  </div>
+</div>
+
+
+  <script src="script.js"></script>
+</body>
+</html>
