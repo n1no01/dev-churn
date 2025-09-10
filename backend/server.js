@@ -24,6 +24,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
+function isValidEmail(email) {
+  const re = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  return re.test(email);
+}
+
 // Helper function to add user to SendGrid list
 async function addToSendGridList(email, listId) {
   const request = {
@@ -49,31 +54,12 @@ async function addToSendGridList(email, listId) {
 app.post("/send-email", async (req, res) => {
   const { email, chain } = req.body;
 
-  if (!email || !chain) {
-    return res.status(400).json({ error: "Email and chain are required" });
+  if (!email || !chain || !isValidEmail(email)) {
+    return res.status(400).json({ error: "Valid email and chain are required" });
   }
 
-  const msg = {
-    to: email,
-    from: process.env.SENDGRID_VERIFIED_SENDER, // must be verified
-    subject: `Developer Health Report for ${chain}`,
-    text: `Here are the results for your chosen chain: ${chain}.`,
-    html: `<h2>Developer Health Report</h2>
-           <p>You selected: <strong>${chain}</strong></p>
-           <p>Stay tuned for more insights!</p>`,
-  };
-
+  // 1️⃣ Store user input in Supabase first
   try {
-    // 1️⃣ Send the email
-    if (process.env.NODE_ENV === "production") {
-      await sgMail.send(msg);
-      await addToSendGridList(email, process.env.SENDGRID_LIST_ID);
-    } else {
-      console.log(`DEV MODE: Would send email to ${email} for chain ${chain}`);
-      console.log(`DEV MODE: Would add ${email} to SendGrid list ${process.env.SENDGRID_LIST_ID}`);
-    }
-
-    // 2️⃣ Store user input in Supabase
     const { data, error } = await supabase
       .from("user_inputs")
       .insert([{ email, chain }]);
@@ -83,17 +69,42 @@ app.post("/send-email", async (req, res) => {
     } else {
       console.log("User input stored in Supabase:", data);
     }
+  } catch (err) {
+    console.error("Unexpected Supabase error:", err);
+  }
 
-    res.json({ success: true, message: "Email sent and data stored!" });
+  // 2️⃣ Prepare SendGrid email
+  const msg = {
+    to: email,
+    from: process.env.SENDGRID_VERIFIED_SENDER, 
+    subject: `Developer Health Report for ${chain}`,
+    text: `Here are the results for your chosen chain: ${chain}.`,
+    html: `<h2>Developer Health Report</h2>
+           <p>You selected: <strong>${chain}</strong></p>
+           <p>Stay tuned for more insights!</p>`,
+  };
+
+  // 3️⃣ Send email and add to SendGrid list
+  try {
+    if (process.env.NODE_ENV === "production") {
+      await sgMail.send(msg);
+      await addToSendGridList(email, process.env.SENDGRID_LIST_ID);
+    } else {
+      console.log(`DEV MODE: Would send email to ${email}`);
+      console.log(`DEV MODE: Would add ${email} to SendGrid list ${process.env.SENDGRID_LIST_ID}`);
+    }
+
+    res.json({ success: true, message: "Data stored and email processed!" });
   } catch (error) {
     if (error.response) {
-      console.error(error.response.body);
+      console.error("SendGrid error:", error.response.body);
     } else {
-      console.error(error);
+      console.error("Unexpected SendGrid error:", error);
     }
-    res.status(500).json({ error: "Failed to send email or store data" });
+    res.status(500).json({ error: "Failed to send email" });
   }
 });
+
 
 // Start server
 app.listen(PORT, () => {
